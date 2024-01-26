@@ -3,18 +3,16 @@
 Shows differences in group memberships for two users, can be used to copy memberships over.
 
 .DESCRIPTION
-Shows differences in group memberships for two users, can be used to copy memberships over.
+Shows differences in group memberships for two users, can be used to copy memberships over, either all or by index.
 
 .PARAMETER userOne
-Main user.
+Main user (the source or master user)
 
 .PARAMETER userTwo
-Secondary user.
+Secondary user (the user you want to copy the memberships over to)
 
 .EXAMPLE
-Compare-MgUserMemberships -userOne <userOneUpn> -userTwo <userTwoUpn> -Copy
-
-Shows differences in group memberships, then copies memberships of userOne over to userTwo.
+Compare-MgUserMemberships -userOne <userOneUpn> -userTwo <userTwoUpn>
 
 Group name                               UserOne status                           userTwo status                        Commonality
 ----------                               ---------------------------------------- ------------------------------------- -----------
@@ -23,6 +21,23 @@ Group - Administrators                   Member                                 
 Group - Access                           Member                                   Member                                Common
 Group - Production Access                Not a member                             Member                                Not common
 Some Users                               Member                                   Not a member                          Not common
+
+.EXAMPLE
+Compare-MgUserMemberships -userOne <userOneUpn> -userTwo <userTwoUpn> -Copy
+
+--- You can only copy the following groups:
+
+Index groupName                                id                                   type      onPremisesSyncEnabled UserOne status                          userTwo status                          Commonality
+----- ---------                                --                                   ----      --------------------- --------------------------------------- --------------------------------------- -----------
+    3 <group1>                                 <groupID>                            {Unified}                       Member                                  Not a member                            Not common
+    5 <group2>                                 <groupID>                            {}                              Member                                  Not a member                            Not common
+    8 <group3>                                 <groupID>                                                            Member                                  Not a member                            Not common
+
+--- Do you want to copy all or through an index? (All/Index): Index
+Specify index from the table: 5
+--- Adding userTwo to group '<group2>' with Id: <groupID>
+
+--- Finished all operations.
 
 .NOTES
 General notes
@@ -33,7 +48,8 @@ function Compare-MgUserMemberships {
         [string]$UserOne,
         [string]$UserTwo,
         [switch]$Copy,
-        [switch]$Mirror
+        [switch]$Mirror,
+        [switch]$WhatIf
     )
 
     begin {
@@ -104,7 +120,7 @@ function Compare-MgUserMemberships {
                     # Filter for groups the user is not a member of and also the group is not of dynamic memership type.
                     foreach ($group in $filteredGroups) {
                         Write-Host "    --- Adding $UserTwo to group $($group.groupName)" -ForegroundColor Yellow
-                        New-MgGroupMember -GroupId $group.id -DirectoryObjectId $userTwoId -WhatIf
+                        New-MgGroupMember -GroupId $group.id -DirectoryObjectId $userTwoId -WhatIf:$WhatIf
                     }
                 } elseif ($readInput -eq "Index") {
                     [int]$readInput = Read-Host -Prompt "Specify index from the table"
@@ -112,7 +128,7 @@ function Compare-MgUserMemberships {
                         $group = $($filteredGroups | Where-Object Index -eq $readInput | Select-Object Id, groupName)
                         Write-Host "--- Adding $UserTwo to group '$($group.groupName)' with Id: $($group.id)" -ForegroundColor Yellow
                         Get-MgGroup -GroupId $($group.id)
-                        New-MgGroupMember -GroupId $($group.id) -DirectoryObjectId $userTwoId
+                        New-MgGroupMember -GroupId $($group.id) -DirectoryObjectId $userTwoId -WhatIf:$WhatIf
                     } else {
                         Write-Error "--- The user can't be added to the group(s), either the user is already a member of the group or the group is of dynamic membership type!"
                     }
